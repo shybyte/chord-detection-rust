@@ -4,3 +4,6 @@ version = "0.1.0"
 authors = ["shybyte <ein@volloeko.de>"]
 
 [dependencies]
+
+[dev-dependencies]
+sdl2 = { git = "https://github.com/shybyte/rust-sdl2", branch = "audio-capture-2" }
