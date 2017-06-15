@@ -1,0 +1,6 @@
+[package]
+name = "chord_detection"
+version = "0.1.0"
+authors = ["shybyte <ein@volloeko.de>"]
+
+[dependencies]
