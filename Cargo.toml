@@ -1,7 +1,10 @@
 [package]
 name = "chord_detection"
 version = "0.1.0"
-authors = ["shybyte <ein@volloeko.de>"]
+description = "Detect chords in sound"
+repository = "https://github.com/shybyte/chord-detection-rust"
+license = "MIT"
+authors = ["shybyte@gmail.com"]
 
 [dependencies]
 
