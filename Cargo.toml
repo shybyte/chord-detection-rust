@@ -7,6 +7,15 @@ license = "MIT"
 authors = ["shybyte@gmail.com"]
 
 [dependencies]
+rustfft = "2.0.0"
+goertzel = "0.2.0"
 
 [dev-dependencies]
-sdl2 = { git = "https://github.com/shybyte/rust-sdl2", branch = "audio-capture-2" }
+sdl2 = "0.31.0"
+#sdl2 = { git = "https://github.com/shybyte/rust-sdl2", branch = "audio-capture-2", features=["ttf"] }
+
+
+[dependencies.sdl2]
+version = "0.31"
+default-features = false
+features = ["ttf"]
