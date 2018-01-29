@@ -1,6 +1,7 @@
 extern crate sdl2;
 extern crate chord_detection;
 extern crate goertzel;
+extern crate pitch_calc;
 
 use std::path::Path;
 
@@ -18,6 +19,15 @@ use goertzel::Parameters;
 use sdl2::audio::{AudioCallback, AudioSpecDesired};
 use std::sync::mpsc;
 use std::i16::MAX as I16_MAX;
+
+use pitch_calc::{
+    Hz,
+    Letter,
+    LetterOctave,
+    ScaledPerc,
+    Step,
+};
+
 
 struct Recording {
     new_frame_sender: mpsc::Sender<Vec<i16>>,
@@ -44,13 +54,15 @@ pub fn main() {
     let desired_spec = AudioSpecDesired {
         freq: None,
         channels: None,
-        samples: None
+        samples: None,
     };
 
     let (new_record_frame_sender, new_record_frame_receiver) = mpsc::channel();
 
+    let mut capture_freq: u32 = 0;
     let capture_device = audio_subsystem.open_capture(None, &desired_spec, |spec| {
         println!("Capture Spec = {:?}", spec);
+        capture_freq = spec.freq as u32;
         Recording {
             new_frame_sender: new_record_frame_sender,
         }
@@ -82,7 +94,6 @@ pub fn main() {
     };
     let TextureQuery { width: t_width, height: t_height, .. } = text_texture.query();
 
-
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut x = 0;
@@ -103,6 +114,7 @@ pub fn main() {
 
 
         if !audio_frames.is_empty() {
+            eprintln!("audio_frames = {:?}", audio_frames.len());
             canvas.set_draw_color(Color::RGB(0, 0, 0));
             canvas.clear();
             let (_w, h) = canvas.output_size().unwrap();
@@ -125,14 +137,20 @@ pub fn main() {
                 canvas.draw_rect(Rect::new(x as i32, middle_h - height as i32, 1, height)).unwrap();
             }
 
-            let gp = Parameters::new(220.0, 44100, audio_chunk.len());
-            let goertzel_a = gp.start();
-            let a_mag = goertzel_a.add(audio_chunk).finish_mag();
 
-            canvas.set_draw_color(Color::RGB(0, 0, 255));
-            canvas.draw_rect(Rect::new(0, 0, (a_mag / 5000.0) as u32, 20)).unwrap();
+            for i in 0..12 {
+                let note = LetterOctave(Letter::A + i, 3);
+                let gp = Parameters::new(note.hz(), capture_freq, audio_chunk.len());
+                let goertzel_a = gp.start();
+                let a_mag = goertzel_a.add(audio_chunk).finish_mag();
 
-            println!("a_mag = {:?}", a_mag);
+                canvas.set_draw_color(Color::RGB(0, 0, 255));
+                let y = i * 30;
+                canvas.draw_rect(Rect::new(0, y, (a_mag / 5000.0) as u32, 20)).unwrap();
+            }
+
+
+//            println!("a_mag = {:?}", a_mag);
 
             canvas.copy(&text_texture, None, Some(Rect::new(0, 0, t_width, t_height))).unwrap();
 
