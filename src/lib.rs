@@ -1,4 +1,8 @@
 extern crate rustfft;
+#[macro_use]
+extern crate lazy_static;
+
+mod chromagram;
 
 use rustfft::FFTplanner;
 use rustfft::num_complex::Complex;
