@@ -1,8 +1,11 @@
 extern crate rustfft;
 #[macro_use]
 extern crate lazy_static;
+extern crate goertzel;
 
-mod chromagram;
+pub mod chromagram;
+pub mod gromagram;
+pub mod midi_notes;
 
 use rustfft::FFTplanner;
 use rustfft::num_complex::Complex;

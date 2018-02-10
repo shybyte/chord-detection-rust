@@ -31,13 +31,15 @@ use rustfft::FFTplanner;
 use rustfft::num_complex::Complex;
 use rustfft::num_traits::Zero;
 
-const C3: f64 = 130.81278265;
-const BUFFER_SIZE: usize = 8192;
+//const C3: f64 = 130.81278265 / 2.0;
+//const C3: f64 = 55.0;
+const C3: f64 = 196.0/4.0;
+const BUFFER_SIZE: usize = 1024 * 4;
 const NUM_HARMONICS: usize = 2;
 const NUM_OCTAVES: usize = 2;
-const NUM_NOTES_IN_OCTAVE: usize = 2;
+const NUM_NOTES_IN_OCTAVE: usize = 12;
 const NUM_BINS_TO_SEARCH: isize = 2;
-const DOWN_SAMPLING_FACTOR: usize = 4;
+const DOWN_SAMPLING_FACTOR: usize = 1;
 
 lazy_static! {
     static ref NOTE_FREQUENCIES: Vec<f64> = (0..NUM_NOTES_IN_OCTAVE)
@@ -48,10 +50,10 @@ lazy_static! {
         .collect();
 }
 
-struct Chromagram {
+pub struct Chromagram {
     props: ChromagramInitProps,
     buffer: Vec<f64>,
-    chromagram: Vec<f64>,
+    pub chromagram: Vec<f64>,
     magnitude_spectrum: Vec<f64>,
     filtered_frame: Vec<f64>,
     fft_in: Vec<Complex<f64>>,
@@ -63,9 +65,9 @@ struct Chromagram {
     chroma_ready: bool,
 }
 
-struct ChromagramInitProps {
-    frame_size: usize,
-    sample_rate: usize,
+pub struct ChromagramInitProps {
+    pub frame_size: usize,
+    pub sample_rate: usize,
 }
 
 impl Default for ChromagramInitProps {
@@ -108,7 +110,6 @@ impl Chromagram {
 
         // move samples back
         for i in (BUFFER_SIZE - self.downsampled_input_audio_frame.len())..BUFFER_SIZE {
-            self.buffer[i] = self.buffer[i + self.downsampled_input_audio_frame.len()];
             self.buffer[i] = self.downsampled_input_audio_frame[n];
             n += 1;
         }
@@ -119,6 +120,10 @@ impl Chromagram {
             self.calculate_chromagram();
             self.num_samples_since_last_calculation = 0;
         }
+    }
+
+    pub fn is_ready(&self) -> bool {
+        self.chroma_ready
     }
 
     fn calculate_chromagram(&mut self) {

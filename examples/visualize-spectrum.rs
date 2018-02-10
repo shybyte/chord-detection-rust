@@ -14,7 +14,10 @@ use std::time::Duration;
 use sdl2::rect::Point;
 use sdl2::rect::Rect;
 use chord_detection::calculate_spectrum;
-use goertzel::Parameters;
+use chord_detection::gromagram::{Gromagram, GromagramInitProps};
+
+use chord_detection::chromagram::{Chromagram, ChromagramInitProps};
+use chord_detection::midi_notes;
 
 use sdl2::audio::{AudioCallback, AudioSpecDesired};
 use std::sync::mpsc;
@@ -37,7 +40,7 @@ impl AudioCallback for Recording {
     type Channel = i16;
 
     fn callback(&mut self, input: &mut [i16]) {
-        //        println!("input[0] = {:?}", input[0]);
+        // println!("input.len = {:?}", input.len());
         self.new_frame_sender.send(input.to_vec()).unwrap();
     }
 }
@@ -59,14 +62,38 @@ pub fn main() {
 
     let (new_record_frame_sender, new_record_frame_receiver) = mpsc::channel();
 
+    let a = LetterOctave(Letter::A, 1);
+    eprintln!("a = {:?}", a.hz());
+
     let mut capture_freq: u32 = 0;
+    let mut channel_count: usize = 1;
+    let mut sample_count = 0;
     let capture_device = audio_subsystem.open_capture(None, &desired_spec, |spec| {
         println!("Capture Spec = {:?}", spec);
         capture_freq = spec.freq as u32;
+        channel_count = spec.channels as usize;
+        sample_count = spec.samples as usize;
         Recording {
             new_frame_sender: new_record_frame_sender,
         }
     }).unwrap();
+
+    let mut input_buffer = vec![0.0; sample_count];
+
+    let mut chromagram = Chromagram::new(ChromagramInitProps {
+        sample_rate: capture_freq as usize,
+        frame_size: sample_count,
+    });
+
+    let mut ggram = Gromagram::new(GromagramInitProps {
+        window_size: 1024 * 2,
+        sample_rate: capture_freq,
+        channel_count: channel_count,
+        start_note: midi_notes::A1 as usize,
+        notes_count: 24
+        }
+    );
+
 
     println!("AudioDriver: {:?}", capture_device.subsystem().current_audio_driver());
     capture_device.resume();
@@ -138,16 +165,33 @@ pub fn main() {
             }
 
 
-            for i in 0..12 {
-                let note = LetterOctave(Letter::A + i, 3);
-                let gp = Parameters::new(note.hz(), capture_freq, audio_chunk.len());
-                let goertzel_a = gp.start();
-                let a_mag = goertzel_a.add(audio_chunk).finish_mag();
-
-                canvas.set_draw_color(Color::RGB(0, 0, 255));
-                let y = i * 30;
-                canvas.draw_rect(Rect::new(0, y, (a_mag / 5000.0) as u32, 20)).unwrap();
+            for frame in &audio_frames {
+                ggram.process_audio_frame(frame);
             }
+
+            for (i, a_mag) in ggram.gromagram.iter().enumerate(){
+                canvas.set_draw_color(Color::RGB(0, 0, 255));
+                let y = (i as i32) * 20;
+                canvas.draw_rect(Rect::new(0, y, (a_mag / 5000.0) as u32, 10)).unwrap();
+            }
+
+            for frame in &audio_frames {
+                for (i, chunk) in frame.chunks(channel_count).enumerate() {
+                    let mut s: i64 = chunk.iter().map(|&x| x as i64).sum();
+                    input_buffer[i] = s as f64 / channel_count as f64;
+                }
+                chromagram.process_audio_frame(&input_buffer);
+            }
+
+//            if chromagram.is_ready() {
+//                canvas.set_draw_color(Color::RGB(0, 0, 255));
+//                for i in 0..12 {
+//                    let a_mag = chromagram.chromagram[i];
+//
+//                    let y = i * 30;
+//                    canvas.draw_rect(Rect::new(0, y as i32, (a_mag / 5.0) as u32, 20)).unwrap();
+//                }
+//            }
 
 
 //            println!("a_mag = {:?}", a_mag);
