@@ -33,7 +33,7 @@ impl AudioCallback for PseudoRecording {
     fn callback(&mut self, out: &mut [i16]) {
         for dst in out.iter_mut() {
             *dst = *self.data.get(self.pos).unwrap_or(&0);
-            self.pos += 1;
+            self.pos = (self.pos + 1) % self.data.len();
         }
         self.new_frame_sender.send(out.to_vec()).unwrap();
     }
@@ -41,9 +41,9 @@ impl AudioCallback for PseudoRecording {
 
 
 pub fn main() {
-    let mut reader = hound::WavReader::open("/home/shybyte/mymusic/endstation-paradies/liebt-uns/liebt-uns-a.wav").unwrap();
+    let mut reader = hound::WavReader::open("/home/shybyte/mymusic/endstation-paradies/liebt-uns/liebt-uns.wav").unwrap();
     let wav_result: Result<Vec<i16>, _> = reader.samples::<i16>().collect();
-    let wav_data  = wav_result.unwrap();
+    let wav_data = wav_result.unwrap();
 
     sdl2::ttf::get_linked_version();
     let sdl_context = sdl2::init().unwrap();
@@ -53,7 +53,7 @@ pub fn main() {
     let desired_spec = AudioSpecDesired {
         freq: Some(44_100),
         channels: Some(1), // mono
-        samples: None      // default
+        samples: None,      // default
     };
 
     let (new_record_frame_sender, new_record_frame_receiver) = mpsc::channel();
@@ -74,18 +74,18 @@ pub fn main() {
     }).unwrap();
 
     let mut ggram = Gromagram::new(GromagramInitProps {
-        window_size: 1024 * 2,
+        window_size: 1024 * 3,
         sample_rate: capture_freq,
         channel_count: channel_count,
         start_note: midi_notes::A1 as usize,
-        notes_count: 24
-        }
+        notes_count: 24,
+    }
     );
 
     println!("AudioDriver: {:?}", capture_device.subsystem().current_audio_driver());
     capture_device.resume();
 
-    let window = video_subsystem.window("rust-sdl2 demo: Video", 800, 600)
+    let window = video_subsystem.window("rust-sdl2 demo: Video", 800, 800)
         .position_centered()
         .opengl()
         .build()
@@ -129,10 +129,21 @@ pub fn main() {
                 ggram.process_audio_frame(frame);
             }
 
-            for (i, a_mag) in ggram.gromagram.iter().enumerate(){
+            let bar_height: u32 = 10;
+
+            for (i, a_mag) in ggram.gromagram.iter().enumerate() {
                 canvas.set_draw_color(Color::RGB(0, 0, 255));
-                let y = (i as i32) * 20;
-                canvas.draw_rect(Rect::new(0, y, (a_mag / 5000.0) as u32, 10)).unwrap();
+                let y = (i as u32) * bar_height;
+                canvas.draw_rect(Rect::new(0, y as i32, (a_mag / 5000.0) as u32, bar_height)).unwrap();
+            }
+
+            ggram.normalize();
+            let start_y = ggram.gromagram.len() as u32 * bar_height + 300;
+
+            for (i, a_mag) in ggram.gromagram.iter().enumerate() {
+                canvas.set_draw_color(Color::RGB(255, 0, 0));
+                let y = (i as u32) * bar_height + start_y;
+                canvas.draw_rect(Rect::new(0, y as i32, (a_mag * 2000.0) as u32, bar_height)).unwrap();
             }
 
 //            canvas.copy(&text_texture, None, Some(Rect::new(0, 0, t_width, t_height))).unwrap();

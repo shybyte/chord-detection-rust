@@ -62,4 +62,11 @@ impl Gromagram {
             self.gromagram[i] = a_mag as f64;
         }
     }
+
+    pub fn normalize(&mut self) {
+        let sum: f64 = self.gromagram.iter().sum();
+        for x in &mut self.gromagram {
+            *x = *x / sum;
+        }
+    }
 }
