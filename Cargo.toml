@@ -11,6 +11,7 @@ rustfft = "2.0.0"
 goertzel = "0.2.0"
 pitch_calc = "0.11.1"
 lazy_static = "1.0.0"
+rusty-machine = "0.5.4"
 
 [dev-dependencies]
 sdl2 = "0.31.0"

@@ -19,6 +19,8 @@ use chord_detection::midi_notes;
 use sdl2::audio::{AudioCallback, AudioSpecDesired};
 use std::sync::mpsc;
 use std::i16::MAX as I16_MAX;
+use chord_detection::utils::make_mono;
+use chord_detection::chord_detection::ChordDetector;
 
 
 struct PseudoRecording {
@@ -39,11 +41,17 @@ impl AudioCallback for PseudoRecording {
     }
 }
 
+fn read_wav(filename: &str) -> Vec<i16> {
+    let complete_filename = "/home/shybyte/mymusic/endstation-paradies/liebt-uns/".to_string();
+    let mut reader = hound::WavReader::open(complete_filename + filename).unwrap();
+    let wav_result: Result<Vec<i16>, _> = reader.samples::<i16>().collect();
+    wav_result.unwrap()
+}
 
 pub fn main() {
-    let mut reader = hound::WavReader::open("/home/shybyte/mymusic/endstation-paradies/liebt-uns/liebt-uns.wav").unwrap();
-    let wav_result: Result<Vec<i16>, _> = reader.samples::<i16>().collect();
-    let wav_data = wav_result.unwrap();
+    let wav_data = read_wav("liebt-uns.wav");
+    let training_input = vec![read_wav("liebt-uns-a.wav"), read_wav("liebt-uns-e.wav")];
+    let training_labels = vec!["a", "e"];
 
     sdl2::ttf::get_linked_version();
     let sdl_context = sdl2::init().unwrap();
@@ -73,14 +81,22 @@ pub fn main() {
         }
     }).unwrap();
 
-    let mut ggram = Gromagram::new(GromagramInitProps {
+    let mut mono_buffer = vec![0; sample_count];
+    let gromagram_init_props = GromagramInitProps {
         window_size: 1024 * 3,
         sample_rate: capture_freq,
-        channel_count: channel_count,
         start_note: midi_notes::A1 as usize,
         notes_count: 24,
+    };
+
+    let mut ggram = Gromagram::new(gromagram_init_props.clone());
+
+    let mut chord_detector = ChordDetector::new(Gromagram::new(gromagram_init_props), &training_labels);
+
+    for (input, label) in training_input.iter().zip(training_labels.iter()) {
+        chord_detector.train(input, label);
     }
-    );
+    chord_detector.finish_training();
 
     println!("AudioDriver: {:?}", capture_device.subsystem().current_audio_driver());
     capture_device.resume();
@@ -126,7 +142,8 @@ pub fn main() {
             }
 
             for frame in &audio_frames {
-                ggram.process_audio_frame(frame);
+                make_mono(channel_count, frame, &mut mono_buffer[..]);
+                ggram.process_audio_frame(&mono_buffer);
             }
 
             let bar_height: u32 = 10;
@@ -145,6 +162,9 @@ pub fn main() {
                 let y = (i as u32) * bar_height + start_y;
                 canvas.draw_rect(Rect::new(0, y as i32, (a_mag * 2000.0) as u32, bar_height)).unwrap();
             }
+
+            let chord = chord_detector.detect(&ggram.gromagram);
+            eprintln!("chord = {:?}", chord);
 
 //            canvas.copy(&text_texture, None, Some(Rect::new(0, 0, t_width, t_height))).unwrap();
 

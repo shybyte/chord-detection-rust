@@ -2,10 +2,10 @@ use std::f64;
 use goertzel::Parameters;
 
 
+#[derive(Clone)]
 pub struct GromagramInitProps {
     pub window_size: usize,
     pub sample_rate: u32,
-    pub channel_count: usize,
     pub start_note: usize,
     pub notes_count: usize,
 }
@@ -15,7 +15,6 @@ impl Default for GromagramInitProps {
         Self {
             window_size: 1024,
             sample_rate: 44_100,
-            channel_count: 1,
             start_note: 28,     // e2 82.41 Hz lowest guitar string
             notes_count: 12,    // one octave
         }
@@ -23,7 +22,7 @@ impl Default for GromagramInitProps {
 }
 
 pub struct Gromagram {
-    props: GromagramInitProps,
+    pub props: GromagramInitProps,
     buffer: Vec<i16>,
     buffer_pos: usize,
     pub gromagram: Vec<f64>,
@@ -41,11 +40,16 @@ impl Gromagram {
         chromagram
     }
 
+    pub fn reset(&mut self) {
+        for p in &mut self.buffer {
+            *p = 0;
+        }
+        self.buffer_pos = 0;
+    }
+
     pub fn process_audio_frame(&mut self, frame: &[i16]) {
-        let channel_count_i64 = self.props.channel_count as i64;
-        for chunk in frame.chunks(self.props.channel_count) {
-            let s: i64 = chunk.iter().map(|&x| x as i64).sum();
-            self.buffer[self.buffer_pos] = (s / channel_count_i64) as i16;
+        for &input in frame {
+            self.buffer[self.buffer_pos] = input;
             self.buffer_pos = (self.buffer_pos + 1) % self.buffer.len();
         }
 

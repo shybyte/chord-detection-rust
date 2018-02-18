@@ -18,6 +18,8 @@ use chord_detection::gromagram::{Gromagram, GromagramInitProps};
 
 use chord_detection::chromagram::{Chromagram, ChromagramInitProps};
 use chord_detection::midi_notes;
+use chord_detection::utils::make_mono;
+use chord_detection::chord_detection::ChordDetector;
 
 use sdl2::audio::{AudioCallback, AudioSpecDesired};
 use std::sync::mpsc;
@@ -79,6 +81,7 @@ pub fn main() {
     }).unwrap();
 
     let mut input_buffer = vec![0.0; sample_count];
+    let mut mono_buffer = vec![0; sample_count];
 
     let mut chromagram = Chromagram::new(ChromagramInitProps {
         sample_rate: capture_freq as usize,
@@ -88,12 +91,10 @@ pub fn main() {
     let mut ggram = Gromagram::new(GromagramInitProps {
         window_size: 1024 * 2,
         sample_rate: capture_freq,
-        channel_count: channel_count,
         start_note: midi_notes::A1 as usize,
-        notes_count: 24
-        }
+        notes_count: 24,
+    }
     );
-
 
     println!("AudioDriver: {:?}", capture_device.subsystem().current_audio_driver());
     capture_device.resume();
@@ -166,10 +167,11 @@ pub fn main() {
 
 
             for frame in &audio_frames {
-                ggram.process_audio_frame(frame);
+                make_mono(channel_count, frame, &mut mono_buffer[..]);
+                ggram.process_audio_frame(&mono_buffer);
             }
 
-            for (i, a_mag) in ggram.gromagram.iter().enumerate(){
+            for (i, a_mag) in ggram.gromagram.iter().enumerate() {
                 canvas.set_draw_color(Color::RGB(0, 0, 255));
                 let y = (i as i32) * 20;
                 canvas.draw_rect(Rect::new(0, y, (a_mag / 5000.0) as u32, 10)).unwrap();
